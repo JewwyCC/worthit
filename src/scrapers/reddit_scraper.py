@@ -12,8 +12,8 @@ class RedditScraper:
     """Enhanced Reddit scraper for basketball shoe discussions"""
     
     def __init__(self, client_id: str = None, client_secret: str = None, user_agent: str = None):
-        self.client_id = client_id or "YOUR_CLIENT_ID"
-        self.client_secret = client_secret or "YOUR_CLIENT_SECRET"
+        self.client_id = client_id or "JdYlCavPJLyMBfA5_vtrbw"
+        self.client_secret = client_secret or "Dl3cfMYcZ29kA4xhx8NVsE7jNZFqkA"
         self.user_agent = user_agent or "BasketballShoeBot/1.0"
         
         # Initialize Reddit instance
@@ -78,10 +78,15 @@ class RedditScraper:
         """Scrape discussions for a single shoe model"""
         reviews = []
         
+        # Calculate posts per subreddit (ensure at least 1 per subreddit)
+        posts_per_subreddit = max(1, max_posts // len(self.target_subreddits))
+        if max_posts % len(self.target_subreddits) != 0:
+            posts_per_subreddit += 1  # Round up to ensure we get enough posts
+        
         # Search across multiple subreddits
         for subreddit_name in self.target_subreddits:
             try:
-                subreddit_reviews = self._search_subreddit(subreddit_name, shoe_model, max_posts // len(self.target_subreddits))
+                subreddit_reviews = self._search_subreddit(subreddit_name, shoe_model, posts_per_subreddit)
                 reviews.extend(subreddit_reviews)
                 
                 if len(reviews) >= max_posts:
@@ -314,28 +319,103 @@ class RedditScraper:
             return WeightClass.MEDIUM
     
     def _extract_score_from_discussion(self, text: str) -> Optional[float]:
-        """Extract score from discussion text"""
-        # Look for rating patterns
+        """Extract score from discussion text with improved patterns and sentiment fallback"""
+        
+        # Expanded patterns for various rating formats
         score_patterns = [
+            # Original patterns (improved)
             r'(\d+(?:\.\d+)?)\s*(?:out of|/)\s*10',
             r'(\d+(?:\.\d+)?)\s*/\s*10',
             r'rate (?:them )?(\d+(?:\.\d+)?)',
             r'score (?:of )?(\d+(?:\.\d+)?)',
-            r'give (?:them )?(?:a )?(\d+(?:\.\d+)?)'
+            r'give (?:them )?(?:a )?(\d+(?:\.\d+)?)',
+            
+            # New explicit rating patterns
+            r'(\d+(?:\.\d+)?)\s*out\s*of\s*10',      # "8.5 out of 10"
+            r'(\d+(?:\.\d+)?)\s*\/\s*10',            # "8/10"
+            r'rating\s*:?\s*(\d+(?:\.\d+)?)',        # "rating: 8.5"
+            r'(\d+(?:\.\d+)?)\s*stars?',             # "8.5 stars"
+            r'overall\s*(\d+(?:\.\d+)?)',            # "overall 8"
+            r'(\d)\s*/\s*10',                        # "8 / 10"
+            r'(\d)\s*out\s*of\s*10',                 # "8 out of 10"
+            r'i\'d\s*(?:give|rate)\s*(?:them|it|these)?\s*(?:a\s*)?(\d+(?:\.\d+)?)', # "I'd rate them 8"
+            
+            # 5-point scale patterns
+            r'(\d+(?:\.\d+)?)\s*out\s*of\s*5',       # "4 out of 5"
+            r'(\d+(?:\.\d+)?)\s*\/\s*5',             # "4/5"
         ]
         
+        # Try to find explicit numerical ratings first
         for pattern in score_patterns:
             matches = re.findall(pattern, text.lower())
             if matches:
                 try:
                     score = float(matches[0])
+                    
+                    # Convert 5-point scale to 10-point scale
+                    if any(scale_indicator in pattern for scale_indicator in ['out of 5', '/ 5', '/5']):
+                        score = score * 2
+                    
+                    # Validate score range
                     if 0 <= score <= 10:
                         return score
-                    elif 0 <= score <= 5:  # 5-point scale
-                        return score * 2  # Convert to 10-point scale
+                    elif 0 <= score <= 5:  # Handle missed 5-point scale
+                        return score * 2
                 except ValueError:
                     continue
         
+        # Fallback: Sentiment-based scoring for Reddit discussions
+        return self._extract_sentiment_score(text)
+    
+    def _extract_sentiment_score(self, text: str) -> Optional[float]:
+        """Extract sentiment-based score when no explicit rating is found"""
+        text_lower = text.lower()
+        
+        # Very positive indicators (8-10 range)
+        very_positive = [
+            'amazing', 'incredible', 'fantastic', 'perfect', 'outstanding', 'excellent',
+            'best ever', 'love these', 'absolutely love', 'blown away', 'mind blown',
+            'game changer', 'holy grail', 'dream shoe', 'obsessed', 'flawless'
+        ]
+        
+        # Positive indicators (6-8 range)
+        positive = [
+            'great', 'good', 'solid', 'nice', 'pretty good', 'really good',
+            'like them', 'impressed', 'satisfied', 'recommend', 'worth it',
+            'happy with', 'pleased', 'decent', 'quality', 'comfortable'
+        ]
+        
+        # Negative indicators (3-5 range)
+        negative = [
+            'bad', 'poor', 'terrible', 'awful', 'horrible', 'disappointed',
+            'not good', 'not great', 'mediocre', 'average', 'meh', 'okay',
+            'could be better', 'not impressed', 'underwhelmed'
+        ]
+        
+        # Very negative indicators (1-3 range)
+        very_negative = [
+            'worst', 'hate', 'regret', 'waste of money', 'garbage', 'trash',
+            'complete failure', 'avoid', 'don\'t buy', 'save your money'
+        ]
+        
+        # Count sentiment indicators
+        very_pos_count = sum(1 for phrase in very_positive if phrase in text_lower)
+        pos_count = sum(1 for phrase in positive if phrase in text_lower)
+        neg_count = sum(1 for phrase in negative if phrase in text_lower)
+        very_neg_count = sum(1 for phrase in very_negative if phrase in text_lower)
+        
+        # Calculate sentiment score if we found indicators
+        total_indicators = very_pos_count + pos_count + neg_count + very_neg_count
+        
+        if total_indicators > 0:
+            # Weight the sentiment
+            sentiment_score = (very_pos_count * 9 + pos_count * 7 + neg_count * 4 + very_neg_count * 2) / total_indicators
+            
+            # Only return sentiment score if it's based on multiple indicators or very strong single indicator
+            if total_indicators >= 2 or very_pos_count > 0 or very_neg_count > 0:
+                return round(sentiment_score, 1)
+        
+        # No clear sentiment indicators found
         return None
     
     def _is_relevant_discussion(self, review: ShoeReview) -> bool:
@@ -343,26 +423,37 @@ class RedditScraper:
         text_lower = review.text.lower()
         title_lower = review.title.lower()
         
-        # Must contain basketball-related keywords
+        # Expanded basketball/performance-related keywords (more inclusive)
         basketball_keywords = [
-            'basketball', 'hoops', 'court', 'game', 'performance',
-            'on court', 'playing', 'ball', 'hoop'
+            'basketball', 'hoops', 'court', 'game', 'performance', 'playing',
+            'ball', 'hoop', 'on court', 'indoor', 'outdoor', 'gym',
+            'cushioning', 'traction', 'support', 'ankle', 'jump', 'run',
+            'comfort', 'fit', 'durability', 'grip', 'sole', 'midsole',
+            'zoom', 'air', 'boost', 'react', 'responsive', 'lockdown'
         ]
         
-        # Check basketball context
+        # Basketball shoe context (more lenient - includes performance terms)
         has_basketball_context = any(keyword in text_lower or keyword in title_lower 
                                    for keyword in basketball_keywords)
         
-        # Filter out pure lifestyle discussions
-        lifestyle_keywords = ['outfit', 'fashion', 'style only', 'looks', 'casual wear']
+        # Also check if it's in basketball-focused subreddits (implicit context)
+        basketball_subreddits = ['bballshoes', 'basketballshoes', 'basketball']
+        is_basketball_subreddit = any(sub in review.url.lower() for sub in basketball_subreddits)
+        
+        # Filter out pure lifestyle discussions (only if no performance context)
+        lifestyle_keywords = ['outfit', 'fashion', 'style only', 'looks', 'casual wear', 'streetwear']
         is_lifestyle_only = any(keyword in text_lower for keyword in lifestyle_keywords) and \
-                           not any(keyword in text_lower for keyword in basketball_keywords)
+                           not has_basketball_context and not is_basketball_subreddit
         
-        # Must be substantial enough
-        is_substantial = len(review.text) > 100
+        # Must be substantial enough (lowered threshold)
+        is_substantial = len(review.text) > 50  # Reduced from 100
         
-        # Check if it's actually about the shoe model
-        shoe_mentioned = review.shoe_model.lower() in text_lower or \
-                        any(word in text_lower for word in review.shoe_model.lower().split())
+        # Check if it's actually about the shoe model (more flexible)
+        shoe_keywords = review.shoe_model.lower().split()
+        shoe_mentioned = any(word in text_lower or word in title_lower 
+                           for word in shoe_keywords if len(word) > 2)  # Skip short words like "21"
         
-        return has_basketball_context and not is_lifestyle_only and is_substantial and shoe_mentioned 
+        # More lenient criteria: pass if any of these conditions are met
+        performance_context = has_basketball_context or is_basketball_subreddit
+        
+        return performance_context and not is_lifestyle_only and is_substantial and shoe_mentioned 

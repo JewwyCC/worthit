@@ -33,6 +33,26 @@ class YouTubeScraper:
         self.request_delay = request_delay  # (min_delay, max_delay) in seconds
         self.proxy_manager = None
         
+        # User agent rotation for stealth
+        self.user_agents = [
+            # Chrome on Windows
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36',
+            # Chrome on Mac
+            'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+            'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/119.0.0.0 Safari/537.36',
+            # Firefox on Windows
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:120.0) Gecko/20100101 Firefox/120.0',
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64; rv:119.0) Gecko/20100101 Firefox/119.0',
+            # Firefox on Mac
+            'Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:120.0) Gecko/20100101 Firefox/120.0',
+            # Safari on Mac
+            'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.1 Safari/605.1.15',
+            # Edge on Windows
+            'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36 Edg/120.0.0.0',
+        ]
+        self.current_user_agent = random.choice(self.user_agents)
+        
         if use_proxies:
             try:
                 print("🌐 Initializing SwiftShadow proxy manager...")
@@ -47,6 +67,8 @@ class YouTubeScraper:
         print(f"🔧 YouTubeScraper initialized:")
         print(f"  - Proxy support: {'ON' if self.use_proxies else 'OFF'}")
         print(f"  - Request delay: {request_delay[0]}-{request_delay[1]}s")
+        print(f"  - User agent rotation: {len(self.user_agents)} agents available")
+        print(f"  - Current user agent: {self.current_user_agent[:50]}...")
         if self.use_proxies:
             print(f"  - Using SwiftShadow auto-rotating proxy manager")
     
@@ -72,11 +94,32 @@ class YouTubeScraper:
             print(f"⚠️ Failed to get proxy from SwiftShadow: {e}")
             return None
     
+    def _rotate_user_agent(self):
+        """Rotate to a new user agent"""
+        self.current_user_agent = random.choice(self.user_agents)
+        print(f"🎭 Rotated user agent: {self.current_user_agent[:50]}...")
+    
+    def _get_headers(self) -> Dict[str, str]:
+        """Get headers with current user agent"""
+        return {
+            'User-Agent': self.current_user_agent,
+            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,image/webp,*/*;q=0.8',
+            'Accept-Language': 'en-US,en;q=0.5',
+            'Accept-Encoding': 'gzip, deflate',
+            'DNT': '1',
+            'Connection': 'keep-alive',
+            'Upgrade-Insecure-Requests': '1',
+        }
+    
     def _wait_between_requests(self):
-        """Add random delay between requests"""
+        """Add random delay between requests and sometimes rotate user agent"""
         delay = random.uniform(self.request_delay[0], self.request_delay[1])
         print(f"⏳ Waiting {delay:.1f}s before next request...")
         time.sleep(delay)
+        
+        # Occasionally rotate user agent (20% chance)
+        if random.random() < 0.2:
+            self._rotate_user_agent()
     
     def scrape_shoe_reviews(self, shoe_models: List[str], max_videos_per_model: int = 10) -> List[ShoeReview]:
         """
@@ -220,8 +263,14 @@ class YouTubeScraper:
             
             # Get transcript with multiple fallback strategies - try fetch() method FIRST
             transcript_text = ""
+            
+            # Rotate user agent before transcript requests (extra stealth)
+            if random.random() < 0.3:  # 30% chance to rotate before transcript
+                self._rotate_user_agent()
+            
             try:
                 # FIRST: Try the fetch method directly (newest API)
+                print(f"🎭 Using user agent for transcript: {self.current_user_agent[:50]}...")
                 ytt_api = YouTubeTranscriptApi()
                 fetched_transcript = ytt_api.fetch(video_id)
                 transcript_text = " ".join([snippet.text for snippet in fetched_transcript])
