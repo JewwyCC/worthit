@@ -18,3 +18,4 @@ numpy==1.24.3
 pandas==2.1.4
 huggingface-hub==0.19.4
 swiftshadow==1.2.1
+textblob==0.17.1
