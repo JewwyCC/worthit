@@ -1,5 +1,7 @@
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import FileResponse
 from pydantic import BaseModel
 from typing import List, Optional
 import uvicorn
@@ -27,6 +29,11 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
+# Mount static files for frontend
+frontend_dir = os.path.join(os.path.dirname(os.path.dirname(os.path.dirname(__file__))), "frontend")
+if os.path.exists(frontend_dir):
+    app.mount("/static", StaticFiles(directory=frontend_dir), name="static")
+
 # Initialize components
 router = QueryRouter()
 vector_db = VectorDatabase()
@@ -50,6 +57,25 @@ class QueryResponse(BaseModel):
 
 @app.get("/")
 async def root():
+    """Serve the frontend homepage"""
+    frontend_file = os.path.join(frontend_dir, "index.html")
+    if os.path.exists(frontend_file):
+        return FileResponse(frontend_file)
+    else:
+        return {
+            "message": "Basketball Shoe Recommendation System v2.0",
+            "status": "healthy",
+            "components": {
+                "router": "active",
+                "vector_db": "active",
+                "web_search": "active",
+                "llm_reasoning": "active"
+            },
+            "frontend": "Navigate to /static/index.html for the web interface"
+        }
+
+@app.get("/health")
+async def health_check():
     """Health check endpoint"""
     return {
         "message": "Basketball Shoe Recommendation System v2.0",

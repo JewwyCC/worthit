@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>WorthIt - Basketball Shoe Recommendations</title>
+    <link rel="stylesheet" href="/static/styles.css">
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <div class="logo">
+                <i class="fas fa-basketball-ball"></i>
+                <h1>WorthIt</h1>
+            </div>
+            <p class="tagline">AI-Powered Basketball Shoe Recommendations</p>
+        </header>
+
+        <!-- Main Content -->
+        <main class="main">
+            <!-- Search Section -->
+            <section class="search-section">
+                <div class="search-container">
+                    <h2>Find Your Perfect Basketball Shoes</h2>
+                    <p class="search-subtitle">Tell us what you're looking for and we'll recommend the best shoes for your game</p>
+                    
+                    <div class="search-form">
+                        <div class="input-group">
+                            <i class="fas fa-search search-icon"></i>
+                            <textarea 
+                                id="searchQuery" 
+                                placeholder="e.g., Best shoes for a 6'2&quot; guard with knee pain under $150..."
+                                rows="3"
+                            ></textarea>
+                        </div>
+                        
+                        <!-- Advanced Options -->
+                        <div class="advanced-options" id="advancedOptions">
+                            <h3>Advanced Filters (Optional)</h3>
+                            <div class="filter-grid">
+                                <div class="filter-group">
+                                    <label for="playstyle">Playing Style</label>
+                                    <select id="playstyle">
+                                        <option value="">Any</option>
+                                        <option value="guard">Guard</option>
+                                        <option value="forward">Forward</option>
+                                        <option value="center">Center</option>
+                                        <option value="all_around">All Around</option>
+                                    </select>
+                                </div>
+                                
+                                <div class="filter-group">
+                                    <label for="budget">Max Budget ($)</label>
+                                    <input type="number" id="budget" placeholder="e.g., 150" min="0" max="500">
+                                </div>
+                                
+                                <div class="filter-group">
+                                    <label for="footType">Foot Type</label>
+                                    <select id="footType">
+                                        <option value="">Any</option>
+                                        <option value="narrow">Narrow</option>
+                                        <option value="normal">Normal</option>
+                                        <option value="wide">Wide</option>
+                                    </select>
+                                </div>
+                                
+                                <div class="filter-group">
+                                    <label for="injuryConcerns">Injury Concerns</label>
+                                    <input type="text" id="injuryConcerns" placeholder="e.g., knee, ankle" />
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="search-actions">
+                            <button type="button" id="toggleAdvanced" class="btn-secondary">
+                                <i class="fas fa-sliders-h"></i> Advanced Options
+                            </button>
+                            <button type="submit" id="searchBtn" class="btn-primary">
+                                <i class="fas fa-magic"></i> Get Recommendations
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Loading Section -->
+            <section class="loading-section" id="loadingSection" style="display: none;">
+                <div class="loading-container">
+                    <div class="basketball-loader">
+                        <div class="basketball">
+                            <div class="lines"></div>
+                        </div>
+                    </div>
+                    <h3>Finding Your Perfect Shoes</h3>
+                    <p>Analyzing your preferences and searching our database...</p>
+                    <div class="progress-steps">
+                        <div class="step active" data-step="1">
+                            <i class="fas fa-route"></i>
+                            <span>Routing Query</span>
+                        </div>
+                        <div class="step" data-step="2">
+                            <i class="fas fa-database"></i>
+                            <span>Searching Database</span>
+                        </div>
+                        <div class="step" data-step="3">
+                            <i class="fas fa-brain"></i>
+                            <span>AI Analysis</span>
+                        </div>
+                        <div class="step" data-step="4">
+                            <i class="fas fa-check"></i>
+                            <span>Complete</span>
+                        </div>
+                    </div>
+                </div>
+            </section>
+
+            <!-- Results Section -->
+            <section class="results-section" id="resultsSection" style="display: none;">
+                <div class="results-header">
+                    <h2>Your Personalized Recommendations</h2>
+                    <div class="results-meta">
+                        <span class="confidence-score" id="confidenceScore"></span>
+                        <span class="processing-time" id="processingTime"></span>
+                        <span class="search-used" id="searchUsed"></span>
+                    </div>
+                </div>
+
+                <!-- AI Reasoning -->
+                <div class="reasoning-card">
+                    <h3><i class="fas fa-brain"></i> AI Analysis</h3>
+                    <div class="reasoning-content" id="reasoningContent"></div>
+                </div>
+
+                <!-- Recommendations Grid -->
+                <div class="recommendations-grid" id="recommendationsGrid"></div>
+
+                <!-- Sources -->
+                <div class="sources-section">
+                    <h3><i class="fas fa-link"></i> Sources & References</h3>
+                    <div class="sources-list" id="sourcesList"></div>
+                </div>
+
+                <!-- New Search Button -->
+                <div class="new-search">
+                    <button id="newSearchBtn" class="btn-secondary">
+                        <i class="fas fa-search-plus"></i> New Search
+                    </button>
+                </div>
+            </section>
+
+            <!-- Error Section -->
+            <section class="error-section" id="errorSection" style="display: none;">
+                <div class="error-container">
+                    <i class="fas fa-exclamation-triangle"></i>
+                    <h3>Oops! Something went wrong</h3>
+                    <p id="errorMessage"></p>
+                    <button id="retryBtn" class="btn-primary">
+                        <i class="fas fa-redo"></i> Try Again
+                    </button>
+                </div>
+            </section>
+        </main>
+
+        <!-- Footer -->
+        <footer class="footer">
+            <p>&copy; 2025 WorthIt Basketball Shoe Recommendations. Powered by AI & RAG Technology.</p>
+            <div class="footer-stats" id="footerStats">
+                <span>Loading system stats...</span>
+            </div>
+        </footer>
+    </div>
+
+    <script src="/static/script.js"></script>
+</body>
+</html> 
